@@ -2,22 +2,43 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
+
+#include <easyMesh.h>
+#include <Ticker.h>
+
+#define   MESH_PREFIX     "whateverYouLike"
+#define   MESH_PASSWORD   "somethingSneaky"
+#define   MESH_PORT       5555
+
 #include "FS.h"
 
 #include "uMQTTBroker.h"
 
-#ifndef CHIBIT_WIFI_SSID
+#ifndef WIFI_SSID
 #include "secrets.h"
 #endif
 
-char ssid[] = CHIBIT_WIFI_SSID;    // your network SSID (name)
-char pass[] = CHIBIT_WIFI_PASSWORD; // your network password
+char ssid[] = WIFI_SSID;    // your network SSID (name)
+char pass[] = WIFI_PASSWORD; // your network password
+
+void sendMessage() ; // Prototype
 
 ESP8266WebServer server ( 80 );
+
+easyMesh  mesh;
+Ticker meshUpdateTimer;
+
+void meshUpdate(){  
+  mesh.update();  //update mesh parameters 
+}
+
 
 void setup() {
   
   Serial.begin(115200);
+  
+
+  
   Serial.println();
   Serial.println();
 
@@ -54,10 +75,22 @@ void setup() {
 
   server.begin();
   Serial.println ( "HTTP server started" );
+ 
+  //call meshUpdate function every 3 sec 
+ // meshUpdateTimer.attach(3,meshUpdate); //delay depends on how frequently nodes are moving   
+
+ // mesh.init( MESH_PREFIX, MESH_PASSWORD, MESH_PORT );
+ // mesh.setReceiveCallback( &receivedCallback );
+ // mesh.setNewConnectionCallback( &newConnectionCallback );
+
 }
 
 void loop() {
     server.handleClient();
+  //   String msg = "Hello from node ";
+  //  msg += mesh.getChipId();
+  //  mesh.sendBroadcast( msg );
+  
 }
 
 
@@ -100,6 +133,17 @@ void handleNotFound() {
   server.send ( 404, "text/plain", message );
 }
 
+/** ****************************************
+ *  Mesh-related functions
+ */
+
+void receivedCallback( uint32_t from, String &msg ) {
+  Serial.printf("startHere: Received from %d msg=%s\n", from, msg.c_str());
+}
+
+void newConnectionCallback( bool adopt ) {
+  Serial.printf("startHere: New Connection, adopt=%d\n", adopt);
+}
 
 
 /** ****************************************
