@@ -1,2 +1,2 @@
 # chibit
-Sensor bracelet for Chiby
+A connected bracelet for Chiby based on ESP8266
