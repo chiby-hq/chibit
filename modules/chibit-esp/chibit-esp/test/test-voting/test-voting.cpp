@@ -4,11 +4,13 @@
 
 #include <unity.h>
 
-#include <election.h>
 
 /****
  * Forward declarations for mock testing
  **********************/
+
+#include <election.h>
+
 void onMeshMessage( uint32_t from, String &msg );
 
 void onNewMeshConnection(uint32_t nodeId);
@@ -22,10 +24,11 @@ String singleLastMessage;
 int broadcastMessageCount = 0;
 String broadcastLastMessage;
 
-void meshSendSingle(uint32_t recipient, String& msg){
+bool meshSendSingle(uint32_t recipient, String& msg){
   singleMessageCount++;
   singleMessageLastRecipient = recipient;
   singleLastMessage = msg;
+  return true;
 }
 
 
@@ -119,7 +122,7 @@ void setup(){
 
 
 void loop() {
-  //  electionUpdate();
+    electionUpdate();
 
     delay(5000);
 }

@@ -5,6 +5,11 @@
 
 painlessMesh m_mesh;
 Task m_electionConclusionTask;
+bool m_electionConclusionTaskDeclared = false;
+
+Task m_electionCalloutTask;
+bool m_electionCalloutTaskDeclared = false;
+
 
 void meshInit(){
 
@@ -20,32 +25,40 @@ void meshUpdate(){
   m_mesh.update();
 }
 
-#ifndef UNIT_TEST
-void meshSendSingle(NODE_ID_T nodeId, String& msg){
-  m_mesh.sendSingle(nodeId, msg);
-}
+#ifndef MOCK_MESH
+  bool meshSendSingle(NODE_ID_T nodeId, String& msg){
+    return m_mesh.sendSingle(nodeId, msg);
+  }
 
 
-void meshSendBroadcast(String& msg){
-  m_mesh.sendBroadcast(msg);
-}
+  void meshSendBroadcast(String& msg){
+    m_mesh.sendBroadcast(msg);
+  }
 #endif
 
 NODE_ID_T meshGetNodeId(){
   return m_mesh.getNodeId();
 }
 
-void meshDeclareElectionTimeout(int timeoutInMillis, std::function<void()> concludeElectionCallback){
-  m_electionConclusionTask.set(timeoutInMillis, 1, concludeElectionCallback);
-  // Delete any existing pre-declared tasks....
-  m_mesh.scheduler.deleteTask( m_electionConclusionTask );
-  // ... and add them again to the scheduler
-  m_mesh.scheduler.addTask( m_electionConclusionTask );
-
-}
-void meshStartElectionTimeout(){
-  if( ! m_electionConclusionTask.isEnabled()){
-    m_electionConclusionTask.enable();
+void meshStartElectionConclusionTimeout(int timeoutInMillis, std::function<void()> electionConclusionCallback){
+  m_electionConclusionTask.set(timeoutInMillis, 1, electionConclusionCallback);
+  if(!m_electionConclusionTaskDeclared){
+    m_mesh.scheduler.addTask( m_electionConclusionTask );
+    m_electionConclusionTaskDeclared = true;
   }
+  m_electionConclusionTask.enable();
+}
+
+void meshStartElectionCalloutTimer(int timeoutInMillis, std::function<void()> electionCalloutCallback){
+  m_electionCalloutTask.set(timeoutInMillis, 1, electionCalloutCallback);
+  if(!m_electionCalloutTaskDeclared){
+    m_mesh.scheduler.addTask( m_electionCalloutTask );
+    m_electionCalloutTaskDeclared = true;
+  }
+  m_electionCalloutTask.enable();
+}
+
+void meshCancelElectionCalloutTimer(){
+  m_electionCalloutTask.disable();
 }
 #endif

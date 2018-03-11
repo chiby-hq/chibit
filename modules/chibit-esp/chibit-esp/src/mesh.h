@@ -19,9 +19,12 @@ NODE_ID_T meshGetNodeId();
 
 void meshUpdate();
 
-void meshSendSingle(NODE_ID_T nodeId, String& msg);
+bool meshSendSingle(NODE_ID_T nodeId, String& msg);
 void meshSendBroadcast(String& msg);
 
-void meshDeclareElectionTimeout(int timeoutInMillis, std::function<void()> concludeElectionCallback);
-void meshStartElectionTimeout();
+void meshStartElectionConclusionTimeout(int timeoutInMillis, std::function<void()> electionConclusionCallback);
+
+void meshStartElectionCalloutTimer(int timeoutInMillis, std::function<void()> electionCalloutCallback);
+void meshCancelElectionCalloutTimer();
+
 #endif
