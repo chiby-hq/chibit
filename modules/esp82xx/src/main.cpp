@@ -10,20 +10,34 @@
 
 #include <ArduinoLog.h>
 
-#include <WebSocketsServer.h>
 #include <ArduinoJson.h>
-#include <MQTTbroker.h>
 #include <TaskScheduler.h>
 
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+#include <ESP8266mDNS.h>
+
+#include "uMQTTBroker.h"
+
+///////////////////////////////
+// project-level headers
+#include "globals.h"
+
+#include "wifi.h"
 
 
-#ifdef HARDWIRED_AP
-#include "secret_hardwiredAP.h"
-#endif
+
+//////////////////////
+
 
 #define CONFIG_FILE "config.json"
 
 int watchdog = 0;
+
+
+AsyncWebServer httpServer(80);
+AsyncWebSocket ws("/ws");
 
 
 // Configuration that we'll store on disk
@@ -60,15 +74,20 @@ void loadConfiguration(const char *filename, Config &config) {
 }
 
 
-WebSocketsServer webSocket = WebSocketsServer(80,"","mqtt");
-MQTTbroker Broker = MQTTbroker(&webSocket);
+//WebSocketsServer webSocket = WebSocketsServer(80,"","mqtt");
+//MQTTbroker Broker = MQTTbroker(&webSocket);
 
 void publishClusterStatsCallback(){
   Log.notice("Publishing cluster stats via MQTT" CR );
-  std::string val = "Value";
+  std::string cid = String(ESP.getChipId()).c_str();
+  std::string val = "{'host':" +cid +"}";
   std::string topic = "/Cluster/timestamp";
-  Broker.publish(topic.c_str(), (uint8_t*)val.c_str(), val.length());
+  std::string wsMsg = "{'topic':'"+topic+"', 'value': "+val+"}";
+
+  MQTT_local_publish((unsigned char *)"/Cluster/timestamp", (unsigned char *)val.c_str(), val.length(), 0, 0);
+  ws.textAll(wsMsg.c_str());
 }
+
 //Tasks
 Task publishClusterStats(10000, TASK_FOREVER, &publishClusterStatsCallback);
 
@@ -76,53 +95,62 @@ Scheduler m_taskScheduler;
 
 bool m_wifiInitialized = false;
 
-void MQTTCallback(String topic_name, uint8_t * payload, uint8_t length_payload){
-        Serial.printf("Receive publish to ");
-        Serial.print(topic_name + " ");
+void MQTTCallback(uint32_t *client, const char* topic, uint32_t topic_len, const char *data, uint32_t lengh) {
+  char topic_str[topic_len+1];
+  os_memcpy(topic_str, topic, topic_len);
+  topic_str[topic_len] = '\0';
+
+  char data_str[lengh+1];
+  os_memcpy(data_str, data, lengh);
+  data_str[lengh] = '\0';
+
+  Serial.print("received topic '");
+  Serial.print(topic_str);
+  Serial.print("' with data '");
+  Serial.print(data_str);
+  Serial.println("'");
 }
 
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-    switch(type) {
-        case WStype_DISCONNECTED:
-            if (Broker.clientIsConnected(num)) Broker.disconnect(num);
-            break;
-        case WStype_BIN:
-            Broker.parsing(num, payload, length);
-            break;
-    }
-}
+void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+ if(type == WS_EVT_CONNECT){
+   Log.notice("ws[%s][%u] connect" CR, server->url(), client->id());
+   client->printf("Hello Client %u :)", client->id());
+   client->ping();
+ } else if(type == WS_EVT_DISCONNECT){
+   //Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+ } else if(type == WS_EVT_ERROR){
+   Log.warning("ws[%s][%u] error(%u): %s" CR, server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+ } else if(type == WS_EVT_PONG){
+   //Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
+ } else if(type == WS_EVT_DATA){
+   AwsFrameInfo * info = (AwsFrameInfo*)arg;
+   String msg = "";
+   if(info->final && info->index == 0 && info->len == len){
+     //the whole message is in a single frame and we got all of it's data
+     Log.notice("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
 
-bool createAP(){
+     if(info->opcode == WS_TEXT){
+       for(size_t i=0; i < info->len; i++) {
+         msg += (char) data[i];
+       }
+     } else {
+       char buff[3];
+       for(size_t i=0; i < info->len; i++) {
+         sprintf(buff, "%02x ", (uint8_t) data[i]);
+         msg += buff ;
+       }
+     }
+     Log.notice("%s" CR,msg.c_str());
 
-#ifndef HARDWIRED_AP
-  int n = WiFi.scanNetworks();
-  // find the strongest suitable signal
-  //  * Preferred : An infrastructure AP
-  //  * Otherwise : Any ChibitAP* with the strongest signal
-#else
-  // For now just connect to a hard coded network
-  Log.notice("Connecting to hardwired access point" CR );
-  WiFi.begin(AP_SSID, AP_PASS);
-
-  int count = 0;
-  int MAXCOUNT=10;
-  while (count <= MAXCOUNT && WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    count++;
-  }
-  if(count >=MAXCOUNT){
-     Log.warning("Could not connect to hardwired access point" CR );
-     return false;
-  }
-  m_wifiInitialized = true;
-  IPAddress myIP = WiFi.localIP();
-
-  Serial.print("AP IP address: ");
-  Serial.println(myIP);
-
-  Log.notice("Connected to hardwired access point " AP_SSID CR);
-#endif
-  return true;
+     if(info->opcode == WS_TEXT)
+       client->text("I got your text message");
+     else
+       client->binary("I got your binary message");
+   } else {
+     // We don't handle multiframe messages
+     Log.warning("ws - multiframe messages not handled !" CR);
+   }
+ }
 }
 
 
@@ -134,28 +162,48 @@ void setup() {
 
   m_taskScheduler.init();
   Log.notice(CR CR "Initialized scheduler ..." CR);
+  std::string cid = String(ESP.getChipId()).c_str();
 
-  if(!createAP()){
-    Log.warning("Could not start WiFi networking !" CR);
+  m_wifiInitialized = wifi_joinOrCreateAP("chibit"); // + cid);
+
+  if(!m_wifiInitialized){
+    Log.fatal("Could not start WiFi networking !" CR);
   }else{
-    Log.notice(CR CR "Starting up MQTT broker ..." CR);
-    // Startup the MQTT and WebSockets loops
-    webSocket.begin();
-    webSocket.onEvent(webSocketEvent);
+    Log.notice(CR CR "Starting file system ..." CR);
+    SPIFFS.begin();
 
-    Broker.begin();
-    Broker.setCallback(MQTTCallback);
+    Log.notice(CR CR "Starting up Web server ..." CR);
+
+    MDNS.addService("http","tcp",80);
+    // Startup the MQTT and WebSockets loops
+    //webSocket.begin();
+    //webSocket.onEvent(webSocketEvent);
+    ws.onEvent(onWsEvent);
+    httpServer.addHandler(&ws);
+    httpServer.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/plain", String(ESP.getFreeHeap()));
+      });
+    httpServer.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+    httpServer.begin();
+
+    Log.notice(CR CR "Starting up MQTT broker ..." CR);
+    MDNS.addService("mqtt","tcp",MQTT_PORT);
+
+    MQTT_server_onData(MQTTCallback);
+    MQTT_server_start(MQTT_PORT, 30, 30);
 
     m_taskScheduler.addTask(publishClusterStats);
     publishClusterStats.enable();
+
   }
 
 }
 
 void loop() {
-  m_taskScheduler.execute();
   if(m_wifiInitialized){
-    webSocket.loop();
+    m_taskScheduler.execute();
+    // webSocket.loop();
+
   }
 
 }
