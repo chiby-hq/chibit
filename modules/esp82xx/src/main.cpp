@@ -18,6 +18,7 @@
 
 #include <ESP8266mDNS.h>
 
+#include "MQTT.h"
 #include "uMQTTBroker.h"
 
 ///////////////////////////////
@@ -26,18 +27,19 @@
 
 #include "wifi.h"
 
-
-
+//
 //////////////////////
-
 
 #define CONFIG_FILE "config.json"
 
-int watchdog = 0;
+AsyncWebServer m_httpServer(80);
+AsyncWebSocket m_websocketServer("/ws");
 
+String m_hostname;
+IPAddress m_mqttBrokerIp;
+uint16_t m_mqttBrokerPort = DEFAULT_MQTT_PORT;
 
-AsyncWebServer httpServer(80);
-AsyncWebSocket ws("/ws");
+MQTT* m_mqttClient;
 
 
 // Configuration that we'll store on disk
@@ -53,12 +55,12 @@ void loadConfiguration(const char *filename, Config &config) {
   File file = SPIFFS.open(CONFIG_FILE, "r");
   if (!file){
     // No config file exists, create one
-
+     Log.notice("Config file is empty" CR );
   } else {
     size_t size = file.size();
     StaticJsonBuffer<188> jsonBuffer;
     if ( size == 0 ) {
-      // Serial.println("Fichier historique vide - History file empty !");
+
     } else {
       std::unique_ptr<char[]> buf (new char[size]);
       file.readBytes(buf.get(), size);
@@ -73,23 +75,33 @@ void loadConfiguration(const char *filename, Config &config) {
   file.close();
 }
 
-
-//WebSocketsServer webSocket = WebSocketsServer(80,"","mqtt");
-//MQTTbroker Broker = MQTTbroker(&webSocket);
-
 void publishClusterStatsCallback(){
   Log.notice("Publishing cluster stats via MQTT" CR );
-  std::string cid = String(ESP.getChipId()).c_str();
-  std::string val = "{'host':" +cid +"}";
-  std::string topic = "/Cluster/timestamp";
-  std::string wsMsg = "{'topic':'"+topic+"', 'value': "+val+"}";
-
-  MQTT_local_publish((unsigned char *)"/Cluster/timestamp", (unsigned char *)val.c_str(), val.length(), 0, 0);
-  ws.textAll(wsMsg.c_str());
+  String cid = String(ESP.getChipId());
+  String val = String("{'host':");
+  val+= cid;
+  val += "}";
+  String topic = "/Cluster/timestamp";
+  String wsMsg = "{'topic':'";
+  wsMsg +=topic;
+  wsMsg +="', 'value': ";
+  wsMsg +=val;
+  wsMsg +="}";
+  Log.notice("Sending now MQTT and WS" CR );
+  if(wifi_getMode() == WIFI_MODE_AP){
+    MQTT_local_publish((unsigned char *)"/Cluster/timestamp", (unsigned char *)val.c_str(), val.length(), 0, 0);
+  }else{
+    m_mqttClient->publish(topic, val);
+  }
+  m_websocketServer.textAll(wsMsg.c_str());
+  Log.notice("Sent" CR );
 }
 
+/////////////////
 //Tasks
-Task publishClusterStats(10000, TASK_FOREVER, &publishClusterStatsCallback);
+Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
+
+///////////
 
 Scheduler m_taskScheduler;
 
@@ -112,44 +124,48 @@ void MQTTCallback(uint32_t *client, const char* topic, uint32_t topic_len, const
 }
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+ Log.notice("on WS event" CR );
+
  if(type == WS_EVT_CONNECT){
    Log.notice("ws[%s][%u] connect" CR, server->url(), client->id());
    client->printf("Hello Client %u :)", client->id());
    client->ping();
  } else if(type == WS_EVT_DISCONNECT){
+   Log.notice("ws[%s][%u] disconnect" CR, server->url(), client->id());
    //Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
  } else if(type == WS_EVT_ERROR){
    Log.warning("ws[%s][%u] error(%u): %s" CR, server->url(), client->id(), *((uint16_t*)arg), (char*)data);
  } else if(type == WS_EVT_PONG){
    //Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
  } else if(type == WS_EVT_DATA){
-   AwsFrameInfo * info = (AwsFrameInfo*)arg;
-   String msg = "";
-   if(info->final && info->index == 0 && info->len == len){
+   Log.notice("ws[%s][%u] data" CR, server->url(), client->id());
+   // AwsFrameInfo * info = (AwsFrameInfo*)arg;
+   // String msg = "";
+   // if(info->final && info->index == 0 && info->len == len){
      //the whole message is in a single frame and we got all of it's data
-     Log.notice("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
-
-     if(info->opcode == WS_TEXT){
-       for(size_t i=0; i < info->len; i++) {
-         msg += (char) data[i];
-       }
-     } else {
-       char buff[3];
-       for(size_t i=0; i < info->len; i++) {
-         sprintf(buff, "%02x ", (uint8_t) data[i]);
-         msg += buff ;
-       }
-     }
-     Log.notice("%s" CR,msg.c_str());
-
-     if(info->opcode == WS_TEXT)
-       client->text("I got your text message");
-     else
-       client->binary("I got your binary message");
-   } else {
-     // We don't handle multiframe messages
-     Log.warning("ws - multiframe messages not handled !" CR);
-   }
+     // Log.notice("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+   //
+   //   if(info->opcode == WS_TEXT){
+   //     for(size_t i=0; i < info->len; i++) {
+   //       msg += (char) data[i];
+   //     }
+   //   } else {
+   //     char buff[3];
+   //     for(size_t i=0; i < info->len; i++) {
+   //       sprintf(buff, "%02x ", (uint8_t) data[i]);
+   //       msg += buff ;
+   //     }
+   //   }
+   //   Log.notice("%s" CR,msg.c_str());
+   //
+   //   if(info->opcode == WS_TEXT)
+   //     client->text("I got your text message");
+   //   else
+   //     client->binary("I got your binary message");
+   // } else {
+   //   // We don't handle multiframe messages
+   //   Log.warning("ws - multiframe messages not handled !" CR);
+   // }
  }
 }
 
@@ -162,39 +178,63 @@ void setup() {
 
   m_taskScheduler.init();
   Log.notice(CR CR "Initialized scheduler ..." CR);
-  std::string cid = String(ESP.getChipId()).c_str();
 
-  m_wifiInitialized = wifi_joinOrCreateAP("chibit"); // + cid);
+  m_hostname = wifi_getAPName();
+  m_wifiInitialized = wifi_joinOrCreateAP(m_hostname.c_str());
 
   if(!m_wifiInitialized){
     Log.fatal("Could not start WiFi networking !" CR);
   }else{
-    Log.notice(CR CR "Starting file system ..." CR);
+    Log.notice("Starting file system ..." CR);
     SPIFFS.begin();
 
-    Log.notice(CR CR "Starting up Web server ..." CR);
+    const int wifiMode = wifi_getMode();
+    Log.notice("WiFi mode is now %d" CR, wifiMode);
+    switch(wifiMode){
+      case WIFI_MODE_AP:
+        if (!MDNS.begin("chibit")) {
+          Log.fatal("Error setting up MDNS responder!" CR);
+        }else{
+          Log.notice("mDNS responder started" CR);
 
-    MDNS.addService("http","tcp",80);
-    // Startup the MQTT and WebSockets loops
-    //webSocket.begin();
-    //webSocket.onEvent(webSocketEvent);
-    ws.onEvent(onWsEvent);
-    httpServer.addHandler(&ws);
-    httpServer.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/plain", String(ESP.getFreeHeap()));
-      });
-    httpServer.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
-    httpServer.begin();
+          Log.notice("Starting up Web server ..." CR);
+          m_websocketServer.onEvent(onWsEvent);
+          m_httpServer.addHandler(&m_websocketServer);
+          m_httpServer.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
+              request->send(200, "text/plain", String(ESP.getFreeHeap()));
+            });
+          m_httpServer.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+          m_httpServer.begin();
+          MDNS.addService("http","tcp",80);
 
-    Log.notice(CR CR "Starting up MQTT broker ..." CR);
-    MDNS.addService("mqtt","tcp",MQTT_PORT);
+          Log.notice(CR CR "Starting up MQTT broker ..." CR);
+          MDNS.addService("mqtt","tcp",DEFAULT_MQTT_PORT);
 
-    MQTT_server_onData(MQTTCallback);
-    MQTT_server_start(MQTT_PORT, 30, 30);
+          MQTT_server_onData(MQTTCallback);
+          MQTT_server_start(DEFAULT_MQTT_PORT, 30, 30);
 
-    m_taskScheduler.addTask(publishClusterStats);
-    publishClusterStats.enable();
+           m_taskScheduler.addTask(m_publishClusterStatsTask);
+           m_publishClusterStatsTask.enable();
+         }
+        break;
+      case WIFI_MODE_CLIENT:
+      case WIFI_MODE_INFRASTRUCTURE:
+        MDNS.begin(m_hostname.c_str());
+        Log.notice("Locating MQTT broker ..." CR);
+        int n = MDNS.queryService("mqtt", "tcp"); // Send out query for MQTT service
+        if (n == 0) {
+          Log.fatal( "MQTT broker could not be located" CR);
+        } else {
+          Log.notice( "Found at least one service" CR);
+          m_mqttBrokerIp = MDNS.IP(0);
+          m_mqttBrokerPort = MDNS.port(0);
+          const String ipAddr = m_mqttBrokerIp.toString();
+          Log.notice("Located MQTT broker at %s : %d" CR, ipAddr.c_str(), m_mqttBrokerPort);
 
+          m_mqttClient = new MQTT(m_hostname.c_str(), ipAddr.c_str(), m_mqttBrokerPort);
+        }
+      break;
+    }
   }
 
 }
@@ -202,8 +242,6 @@ void setup() {
 void loop() {
   if(m_wifiInitialized){
     m_taskScheduler.execute();
-    // webSocket.loop();
-
   }
 
 }
