@@ -75,7 +75,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
     Log.notice("Trying to connect to any nearby Chibit ad-hoc access point" CR );
     for (int i = 0; i < n && (!connected); ++i) {
       //Log.notice("SSID %s RRSI %d" , WiFi.SSID(i).c_str(), WiFi.RSSI(i) );
-      if(WiFi.SSID(i).startsWith(CHIBIT_AP_PREFIX) && WiFi.RSSI(i) >= -40){
+      if(WiFi.SSID(i).startsWith(CHIBIT_AP_PREFIX) && WiFi.RSSI(i) >= -60){
         // Connect to the ad-hoc Chibit Access Point - the password is the SSID + "passwd"
         String apPassword = WiFi.SSID(i)+"passwd";
         Log.notice("Trying to connect to ad-hoc Chibit access point %s (%d) with password %s" CR, WiFi.SSID(i).c_str(), WiFi.RSSI(i), apPassword.c_str() );
@@ -93,8 +93,9 @@ bool wifi_joinOrCreateAP(const char* hostname){
   if(!connected){
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(m_apIP, m_apIP, IPAddress(255, 255, 255, 0));
-    m_apSSID = wifi_getAPName().c_str();
-
+    String apSSID = wifi_getAPName()+"" ;
+    m_apSSID = apSSID.c_str();
+    
     String apPassword = wifi_getAPName()+"passwd";
     m_apPassword = apPassword.c_str();
     WiFi.softAP(m_apSSID, m_apPassword);
