@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.github.chiby.chibit</groupId>
+	<artifactId>chibit-web</artifactId>
+	<version>1.0</version>
+	<packaging>war</packaging>
+	
+	<!-- 
+	  * This application is only using Maven facilities
+	  * to package a static javascript application in the simplest way 
+	  * possible.
+	-->
+
+	<name>Chibit Web interface</name>
+	<description>Web frontend for the Chibit connected bracelet</description>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<java.version>1.8</java.version>
+		<jetty.version>9.4.10.RC0</jetty.version>
+	</properties>
+	
+	<dependencies>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>bootstrap</artifactId>
+			<version>3.3.7-1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>jquery</artifactId>
+			<version>3.2.1</version>
+		</dependency>
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>packery</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+        <!--dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>draggabilly</artifactId>
+            <version>2.1.0</version>
+        </dependency-->
+       <dependency>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>javax-websocket-server-impl</artifactId>
+            <version>${jetty.version}</version>
+            <scope>provided</scope>
+        </dependency>
+       <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.8.0</version>
+        </dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-compiler-plugin</artifactId>
+              <configuration>
+                <source>1.8</source>
+                <target>1.8</target>
+              </configuration>
+            </plugin>
+            <plugin>
+				<groupId>io.reformanda.semper</groupId>
+				<artifactId>dependencyversion-maven-plugin</artifactId>
+				<version>1.0.0</version>
+				<executions>
+					<execution>
+						<id>set-all</id>
+						<goals>
+							<goal>set-version</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+              <groupId>org.eclipse.jetty</groupId>
+              <artifactId>jetty-maven-plugin</artifactId>
+              <version>${jetty.version}</version>
+              <dependencies>
+                
+              </dependencies>
+              <configuration>
+                <scanIntervalSeconds>1</scanIntervalSeconds>
+                <webApp>
+                  <resourceBases>
+                    <resourceBase>${project.basedir}/src/main/webapp</resourceBase>
+                    <resourceBase>${project.build.directory}/${project.artifactId}-${project.version}</resourceBase>
+                  </resourceBases>
+                </webApp>
+              </configuration>
+            </plugin>
+			<plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-dependency-plugin</artifactId>
+              <version>2.10</version>
+              <executions>
+                <execution>
+                  <id>unpack-dependencies</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                    <goal>unpack</goal>
+                  </goals>
+                  <configuration>
+                    <artifactItems>
+                       <artifactItem>
+                         <groupId>org.webjars</groupId>
+                         <artifactId>bootstrap</artifactId>
+                         <type>jar</type>
+                         <overWrite>true</overWrite>
+                         <includes>META-INF/resources/webjars/bootstrap/**/glyph*, META-INF/resources/webjars/bootstrap/**/bootstrap.min.css, META-INF/resources/webjars/bootstrap/**/bootstrap.min.css.map,META-INF/resources/webjars/bootstrap/**/bootstrap.min.js</includes>
+                       </artifactItem>
+                       <artifactItem>
+                         <groupId>org.webjars</groupId>
+                         <artifactId>jquery</artifactId>
+                         <type>jar</type>
+                         <overWrite>true</overWrite>
+                         <includes>META-INF/resources/webjars/jquery/**/jquery.min.*</includes>
+                       </artifactItem>
+                       <artifactItem>
+                         <groupId>org.webjars</groupId>
+                         <artifactId>packery</artifactId>
+                         <type>jar</type>
+                         <overWrite>true</overWrite>
+                         <includes>META-INF/resources/webjars/packery/**/packery.pkgd.min.js</includes>
+                       </artifactItem>
+                     </artifactItems>
+                     <outputDirectory>${project.build.directory}/webjars</outputDirectory>
+                    <overWriteReleases>false</overWriteReleases>
+                    <overWriteSnapshots>true</overWriteSnapshots>
+                  </configuration>
+                </execution>
+              </executions>
+            </plugin>			
+			<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.7</version>
+                <executions>
+                    <execution>
+                        <id>copy webjars dependency to WAR web folder</id>
+                        <phase>compile</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/${project.artifactId}-${project.version}"/>
+                                <copy todir="${project.build.directory}/${project.artifactId}-${project.version}" flatten="true">
+                                    <fileset dir="${project.build.directory}/webjars">
+                                                 <include name="**/*"/>
+                                                 <type type="file"/>
+                                    </fileset>
+                                </copy>
+                            </target>s
+                        </configuration>
+                      </execution>
+                      <execution>
+                        <id>copy webjars dependency to ESP SPIFFS data folder for upload</id>
+                        <phase>package</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <copy todir="${project.basedir}/data">
+                                    <fileset dir="${project.build.directory}/${project.artifactId}-${project.version}">
+                                                 <include name="**/*"/>
+                                    </fileset>
+                                </copy>
+                            </target>s
+                        </configuration>
+                      </execution>
+                    </executions>
+            </plugin>
+		</plugins>
+	</build>
+
+</project>
