@@ -97,9 +97,22 @@ void publishClusterStatsCallback(){
   Log.notice("Sent" CR );
 }
 
+
+void publishADCReadingCallback(){
+  Log.notice("Publishing ADC reading via MQTT" CR );
+  String topic = "/Cluster/adc/reading";
+  String val = "123456";
+  if(wifi_getMode() == WIFI_MODE_AP){
+    MQTT_local_publish((unsigned char *)topic.c_str(),(unsigned char *)val.c_str(), val.length(), 0, 0);
+  }else{
+    m_mqttClient->publish(topic, val);
+  }
+}
+
 /////////////////
 //Tasks
 Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
+Task m_publishADCReadingTask(5000, TASK_FOREVER, &publishADCReadingCallback);
 
 ///////////
 
@@ -232,6 +245,9 @@ void setup() {
           Log.notice("Located MQTT broker at %s : %d" CR, ipAddr.c_str(), m_mqttBrokerPort);
 
           m_mqttClient = new MQTT(m_hostname.c_str(), ipAddr.c_str(), m_mqttBrokerPort);
+
+          m_taskScheduler.addTask(m_publishADCReadingTask);
+          m_publishADCReadingTask.enable();
         }
       break;
     }
