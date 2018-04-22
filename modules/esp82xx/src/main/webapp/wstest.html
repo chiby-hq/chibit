@@ -1,0 +1,50 @@
+<!DOCTYPE HTML>
+<html>
+   <head>
+
+      <script type="text/javascript">
+          if (! ("WebSocket" in window) )
+           {  // The browser doesn't support WebSocket
+               alert("WebSocket NOT supported by your Browser!");
+           }
+           
+           var ws = new WebSocket("ws://" + location.host + "/ws");
+           
+           function push(obj){
+               // Web Socket is connected, send data using send()
+              ws.send(JSON.stringify(obj));
+              console.log("Message is sent...");
+           }
+
+           ws.onopen = function()
+           {
+              console.log("WS Connection is open...");
+           };
+           
+           ws.onmessage = function (evt)
+           {
+              var received_msg = evt.data;
+              console.log("Message received :", received_msg);
+           };
+           
+           ws.onclose = function()
+           {
+              // websocket is closed.
+              console.log("WS Connection closed...");
+           };
+           
+           window.onbeforeunload = function(event) {
+              ws.close();
+           };
+
+      </script>
+
+   </head>
+   <body>
+
+      <div id="sse">
+         <a href="javascript:push({'topic':'/chibit/123/sensor/adc', 'value':123})">Push Message</a>
+      </div>
+
+   </body>
+</html>
