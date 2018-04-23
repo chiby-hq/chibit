@@ -64,7 +64,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
           Log.notice("Successful connection to Infrastructure AP %s" CR, ACCESS_POINTS_LIST[j].ssid);
           m_wifiMode = WIFI_MODE_INFRASTRUCTURE;
         }else{
-          Log.notice("No known infrastructure access point found, moving on..." CR);
+          Log.notice("Infrastructure access point %s connection attempt failed." CR, ACCESS_POINTS_LIST[j].ssid );
         }
       }
     }
@@ -72,7 +72,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
 
   //  * (2/3) Otherwise : Any ChibitAP_* with signal strength (RSSI) >= -40 dB
   if(!connected){
-    Log.notice("Trying to connect to any nearby Chibit ad-hoc access point" CR );
+    Log.notice("No known infrastructure access point found, trying to connect to any nearby Chibit ad-hoc access point" CR );
     for (int i = 0; i < n && (!connected); ++i) {
       //Log.notice("SSID %s RRSI %d" , WiFi.SSID(i).c_str(), WiFi.RSSI(i) );
       if(WiFi.SSID(i).startsWith(CHIBIT_AP_PREFIX) && WiFi.RSSI(i) >= -60){
@@ -84,18 +84,19 @@ bool wifi_joinOrCreateAP(const char* hostname){
           Log.notice("Successful connection to ad-hoc Chibit access point %s" CR, WiFi.SSID(i).c_str());
           m_wifiMode = WIFI_MODE_CLIENT;
         }else{
-          Log.notice("No nearby Chibit ad-hoc access point found, starting my own..." CR);
+          Log.notice("Chibit ad-hoc access point %s connection attempt failed." CR, WiFi.SSID(i).c_str());
         }
       }
     }
   }
   // * (3/3) if not, start its own ChibitAP_<chipId> and wait for connections
   if(!connected){
+    Log.notice("No nearby Chibit ad-hoc access point found, starting my own..." CR);
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(m_apIP, m_apIP, IPAddress(255, 255, 255, 0));
     String apSSID = wifi_getAPName()+"" ;
     m_apSSID = apSSID.c_str();
-    
+
     String apPassword = wifi_getAPName()+"passwd";
     m_apPassword = apPassword.c_str();
     WiFi.softAP(m_apSSID, m_apPassword);
