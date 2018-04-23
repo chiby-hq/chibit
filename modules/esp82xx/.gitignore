@@ -6,3 +6,4 @@ secret_*.h
 /.settings/
 .project
 .cproject
+data/*
