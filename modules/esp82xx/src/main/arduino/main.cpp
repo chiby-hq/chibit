@@ -27,10 +27,12 @@
 
 #include "wifi.h"
 
+#include "analog_bend.h"
+
 //
 //////////////////////
 
-#define CONFIG_FILE "config.json"
+#define CONFIG_FILE "/config.json"
 
 AsyncWebServer m_httpServer(80);
 AsyncWebSocket m_websocketServer("/ws");
@@ -41,34 +43,56 @@ uint16_t m_mqttBrokerPort = DEFAULT_MQTT_PORT;
 
 MQTT* m_mqttClient;
 
+void forceCalibration(){
+  unsigned int min;
+  unsigned int max;
 
-// Configuration that we'll store on disk
-struct Config {
-  uint chipId;
-  int  rgbColor;
-  char avatar[32];
-  char name[32];
-};
-Config config;
+  Log.notice("Starting forced calibration" CR );
 
-void loadConfiguration(const char *filename, Config &config) {
+  analog_bend_calibrateSensor(min, max);
+  // Save the result
+  StaticJsonBuffer<58> jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  root["min"] = min;
+  root["max"] = max;
+
+  File file = SPIFFS.open(CONFIG_FILE, "w");
+  if (root.printTo(file) == 0) {
+    Log.error("Failed to write to configuration file." CR);
+  }else{
+    Log.notice("JSON configuration file creation successful." CR);
+  }
+
+  // Close the file (File's destructor doesn't close the file)
+  file.close();
+}
+
+void loadConfiguration() {
   File file = SPIFFS.open(CONFIG_FILE, "r");
   if (!file){
     // No config file exists, create one
      Log.notice("Config file is empty" CR );
+     file.close();
+     forceCalibration();
   } else {
     size_t size = file.size();
-    StaticJsonBuffer<188> jsonBuffer;
+    StaticJsonBuffer<58> jsonBuffer;
     if ( size == 0 ) {
-
+      // The file is empty, force a calibration round
+      file.close();
+      forceCalibration();
     } else {
       std::unique_ptr<char[]> buf (new char[size]);
       file.readBytes(buf.get(), size);
       JsonObject& root = jsonBuffer.parseObject(buf.get());
       if (!root.success()) {
         //  cannot read JSON file
+        file.close();
+        forceCalibration();
       } else {
-        // Configuration loaded - transfer to config struct
+        // Configuration loaded - setup calibration min/max
+        analog_bend_setMinMax(root["min"], root["max"]);
+        Log.notice("JSON configuration file loading successful (min %d, max %d)." CR, root["min"], root["max"]);
       }
     }
   }
@@ -152,33 +176,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
    //Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
  } else if(type == WS_EVT_DATA){
    Log.notice("ws[%s][%u] data" CR, server->url(), client->id());
-   // AwsFrameInfo * info = (AwsFrameInfo*)arg;
-   // String msg = "";
-   // if(info->final && info->index == 0 && info->len == len){
-     //the whole message is in a single frame and we got all of it's data
-     // Log.notice("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
-   //
-   //   if(info->opcode == WS_TEXT){
-   //     for(size_t i=0; i < info->len; i++) {
-   //       msg += (char) data[i];
-   //     }
-   //   } else {
-   //     char buff[3];
-   //     for(size_t i=0; i < info->len; i++) {
-   //       sprintf(buff, "%02x ", (uint8_t) data[i]);
-   //       msg += buff ;
-   //     }
-   //   }
-   //   Log.notice("%s" CR,msg.c_str());
-   //
-   //   if(info->opcode == WS_TEXT)
-   //     client->text("I got your text message");
-   //   else
-   //     client->binary("I got your binary message");
-   // } else {
-   //   // We don't handle multiframe messages
-   //   Log.warning("ws - multiframe messages not handled !" CR);
-   // }
  }
 }
 
@@ -189,18 +186,22 @@ void setup() {
 
   Log.notice(CR CR "Starting Chibit ..." CR);
 
+  Log.notice("Starting file system ..." CR);
+  SPIFFS.begin();
+  Log.notice("Loading initial configuration ..." CR);
+  loadConfiguration();
+
   m_taskScheduler.init();
-  Log.notice(CR CR "Initialized scheduler ..." CR);
+  Log.notice(CR "Initialized scheduler ..." CR);
 
   m_hostname = wifi_getAPName();
   m_wifiInitialized = wifi_joinOrCreateAP(m_hostname.c_str());
 
   if(!m_wifiInitialized){
     Log.fatal("Could not start WiFi networking !" CR);
+    // flatline the built-in LED
+    digitalWrite(LED_PIN, LOW);
   }else{
-    Log.notice("Starting file system ..." CR);
-    SPIFFS.begin();
-
     const int wifiMode = wifi_getMode();
     Log.notice("WiFi mode is now %d" CR, wifiMode);
     switch(wifiMode){
@@ -237,6 +238,8 @@ void setup() {
         int n = MDNS.queryService("mqtt", "tcp"); // Send out query for MQTT service
         if (n == 0) {
           Log.fatal( "MQTT broker could not be located" CR);
+          // flatline the built-in LED
+          digitalWrite(LED_PIN, LOW);
         } else {
           Log.notice( "Found at least one service" CR);
           m_mqttBrokerIp = MDNS.IP(0);
@@ -256,6 +259,10 @@ void setup() {
 }
 
 void loop() {
+  if (digitalRead(FLASH_BUTTON_PIN) == LOW) { //flash button pressed?
+    forceCalibration();
+  }
+
   if(m_wifiInitialized){
     m_taskScheduler.execute();
   }

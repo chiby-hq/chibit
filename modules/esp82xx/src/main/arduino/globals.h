@@ -7,5 +7,8 @@
 #define WIFI_TIMEOUT_MS 8000
 #define CHIBIT_AP_PREFIX "ChibitAP_"
 
+const int LED_PIN=2;
+
+const int FLASH_BUTTON_PIN=0;
 
 #endif
