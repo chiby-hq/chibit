@@ -97,7 +97,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
     String apSSID = wifi_getAPName()+"" ;
     m_apSSID = apSSID.c_str();
 
-    String apPassword = wifi_getAPName()+"passwd";
+    String apPassword = String(ESP.getChipId());
     m_apPassword = apPassword.c_str();
     WiFi.softAP(m_apSSID, m_apPassword);
 
