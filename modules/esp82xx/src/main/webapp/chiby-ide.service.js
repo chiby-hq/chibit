@@ -1,17 +1,23 @@
 function Chiby() {
     this.applications = [
-        { "uuid": "hello-world"
-           , "title" : "Hello World"
-           , "description" : "Just a quick test application"
-           , "avatar" : "asterisk"
+        { "uuid": "sensors-manager"
+           , "title" : "Sensors configuration"
+           , "description" : "Set names and colors for all connected sensors"
+           , "avatar" : "cog"
+        },
+        { "uuid": "scrollbar-race"
+           , "title" : "Race other players !"
+           , "description" : "Fill up those scrollbars to score"
+           , "avatar" : "th-list"
         }
     ];
     
     this.wsListeners = [];
-    // Sanity check - are websockets supported by this browser ?
-    if (! ("WebSocket" in window) )
-    {  // The browser doesn't support WebSocket
-        alert("WebSocket NOT supported by your Browser! The Chiby IDE environment will not work !");
+    // Sanity check for browser support
+    if ( (! ("WebSocket" in window))  || (! window.localStorage) )
+    {  // The browser doesn't support WebSocket or Local Storage
+        if((! ("WebSocket" in window)) ) alert("WebSocket NOT supported by your Browser! The Chiby IDE environment will not work !");
+        if( ! window.localStorage ) alert("Local Storage NOT supported by your Browser! The Chiby IDE environment will not work !");
     }
     else{ 
       // Open a Websocket connection to receive message updates
@@ -21,7 +27,7 @@ function Chiby() {
       this.ws.onopen = function(){
           console.log("WS Connection is open...");
        };
-           
+      
       this.ws.onmessage = function (evt){
          // console.log("Message received :", evt.data);
          $.each(that.wsListeners, function(index, listener){
