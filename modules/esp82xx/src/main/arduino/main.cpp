@@ -41,6 +41,8 @@ String m_hostname;
 IPAddress m_mqttBrokerIp;
 uint16_t m_mqttBrokerPort = DEFAULT_MQTT_PORT;
 
+String m_sensorTopic;
+
 MQTT* m_mqttClient;
 
 void forceCalibration(){
@@ -100,7 +102,7 @@ void loadConfiguration() {
 }
 
 void publishClusterStatsCallback(){
-  Log.notice("Publishing cluster stats via MQTT" CR );
+  Log.trace("Publishing cluster stats via MQTT" CR );
   String cid = String(ESP.getChipId());
   String val = String("{'host':");
   val+= cid;
@@ -111,32 +113,29 @@ void publishClusterStatsCallback(){
   wsMsg +="', 'value': ";
   wsMsg +=val;
   wsMsg +="}";
-  Log.notice("Sending now MQTT and WS" CR );
   if(wifi_getMode() == WIFI_MODE_AP){
-    MQTT_local_publish((unsigned char *)"/Cluster/timestamp", (unsigned char *)val.c_str(), val.length(), 0, 0);
+    MQTT_local_publish((unsigned char *)topic.c_str(), (unsigned char *)val.c_str(), val.length(), 0, 0);
   }else{
     m_mqttClient->publish(topic, val);
   }
-  m_websocketServer.textAll(wsMsg.c_str());
-  Log.notice("Sent" CR );
 }
 
 
 void publishADCReadingCallback(){
-  Log.notice("Publishing ADC reading via MQTT" CR );
-  String topic = "/Cluster/adc/reading";
-  String val = "123456";
+  Log.trace("Publishing ADC reading via MQTT" CR );
+
+  String read = String((int)analog_bend_readAdc());
   if(wifi_getMode() == WIFI_MODE_AP){
-    MQTT_local_publish((unsigned char *)topic.c_str(),(unsigned char *)val.c_str(), val.length(), 0, 0);
+    MQTT_local_publish((unsigned char *)m_sensorTopic.c_str(),(unsigned char *)read.c_str(), 1, 0, 0);
   }else{
-    m_mqttClient->publish(topic, val);
+    m_mqttClient->publish(m_sensorTopic, read);
   }
 }
 
 /////////////////
 //Tasks
 Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
-Task m_publishADCReadingTask(5000, TASK_FOREVER, &publishADCReadingCallback);
+Task m_publishADCReadingTask(3000, TASK_FOREVER, &publishADCReadingCallback);
 
 ///////////
 
@@ -144,31 +143,37 @@ Scheduler m_taskScheduler;
 
 bool m_wifiInitialized = false;
 
-void MQTTCallback(uint32_t *client, const char* topic, uint32_t topic_len, const char *data, uint32_t lengh) {
+void MQTTCallback(uint32_t *client, const char* topic, uint32_t topic_len, const char *data, uint32_t length) {
   char topic_str[topic_len+1];
   os_memcpy(topic_str, topic, topic_len);
   topic_str[topic_len] = '\0';
 
-  char data_str[lengh+1];
-  os_memcpy(data_str, data, lengh);
-  data_str[lengh] = '\0';
+  char data_str[length+1];
+  os_memcpy(data_str, data, length);
+  data_str[length] = '\0';
 
-  Serial.print("received topic '");
-  Serial.print(topic_str);
-  Serial.print("' with data '");
-  Serial.print(data_str);
-  Serial.println("'");
+  Log.trace("MQTT Received %s with data %s" CR, topic_str, data_str);
+
+  StaticJsonBuffer<100> jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  root["topic"] = topic_str;
+  root["value"] = data_str;
+
+  String wsMsg;
+  root.printTo(wsMsg);
+  m_websocketServer.textAll(wsMsg.c_str());
+
 }
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
- Log.notice("on WS event" CR );
+ Log.trace("on WS event" CR );
 
  if(type == WS_EVT_CONNECT){
-   Log.notice("ws[%s][%u] connect" CR, server->url(), client->id());
+   Log.trace("ws[%s][%u] connect" CR, server->url(), client->id());
    client->printf("Hello Client %u :)", client->id());
    client->ping();
  } else if(type == WS_EVT_DISCONNECT){
-   Log.notice("ws[%s][%u] disconnect" CR, server->url(), client->id());
+   Log.warning("ws[%s][%u] disconnect" CR, server->url(), client->id());
    //Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
  } else if(type == WS_EVT_ERROR){
    Log.warning("ws[%s][%u] error(%u): %s" CR, server->url(), client->id(), *((uint16_t*)arg), (char*)data);
@@ -182,6 +187,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 void setup() {
   Serial.begin(115200);
+//  Log.begin(LOG_LEVEL_NOTICE, &Serial);
   Log.begin(LOG_LEVEL_VERBOSE, &Serial);
 
   Log.notice(CR CR "Starting Chibit ..." CR);
@@ -190,6 +196,10 @@ void setup() {
   SPIFFS.begin();
   Log.notice("Loading initial configuration ..." CR);
   loadConfiguration();
+
+  m_sensorTopic = "/chibit/";
+  m_sensorTopic+=ESP.getChipId();
+  m_sensorTopic+="/bend";
 
   m_taskScheduler.init();
   Log.notice(CR "Initialized scheduler ..." CR);
@@ -226,6 +236,7 @@ void setup() {
 
           MQTT_server_onData(MQTTCallback);
           MQTT_server_start(DEFAULT_MQTT_PORT, 30, 30);
+          MQTT_local_subscribe((unsigned char *)"#", 0);
 
            m_taskScheduler.addTask(m_publishClusterStatsTask);
            m_publishClusterStatsTask.enable();
@@ -249,11 +260,11 @@ void setup() {
 
           m_mqttClient = new MQTT(m_hostname.c_str(), ipAddr.c_str(), m_mqttBrokerPort);
 
-          m_taskScheduler.addTask(m_publishADCReadingTask);
-          m_publishADCReadingTask.enable();
         }
       break;
     }
+    m_taskScheduler.addTask(m_publishADCReadingTask);
+    m_publishADCReadingTask.enable();
   }
 
 }
