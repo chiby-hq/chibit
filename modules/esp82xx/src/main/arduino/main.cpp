@@ -124,7 +124,9 @@ void publishClusterStatsCallback(){
 void publishADCReadingCallback(){
   Log.trace("Publishing ADC reading via MQTT" CR );
 
-  String read = String((int)analog_bend_readAdc());
+  unsigned char rawRead = analog_bend_readAdc();
+  Log.trace("ADC reading = %d" CR, rawRead );
+  String read = String((int)rawRead);
   if(wifi_getMode() == WIFI_MODE_AP){
     MQTT_local_publish((unsigned char *)m_sensorTopic.c_str(),(unsigned char *)read.c_str(), 1, 0, 0);
   }else{
@@ -238,8 +240,8 @@ void setup() {
           MQTT_server_start(DEFAULT_MQTT_PORT, 30, 30);
           MQTT_local_subscribe((unsigned char *)"#", 0);
 
-           m_taskScheduler.addTask(m_publishClusterStatsTask);
-           m_publishClusterStatsTask.enable();
+      //     m_taskScheduler.addTask(m_publishClusterStatsTask);
+      //     m_publishClusterStatsTask.enable();
          }
         break;
       case WIFI_MODE_CLIENT:
