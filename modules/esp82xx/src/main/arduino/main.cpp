@@ -127,6 +127,7 @@ void publishADCReadingCallback(){
   Log.trace("Publishing ADC reading via MQTT" CR );
 
   Log.trace("ADC reading = %d" CR, m_lastKnownBendSensorRead );
+  Serial.println(m_lastKnownBendSensorRead);
   char read[4];
   sprintf(read,"%d", m_lastKnownBendSensorRead);
   if(wifi_getMode() == WIFI_MODE_AP){
