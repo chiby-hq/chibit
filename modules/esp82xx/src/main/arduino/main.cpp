@@ -144,7 +144,7 @@ void acquireADCReadingCallback(){
 /////////////////
 //Tasks
 Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
-Task m_publishADCReadingTask(3000, TASK_FOREVER, &publishADCReadingCallback);
+Task m_publishADCReadingTask(250, TASK_FOREVER, &publishADCReadingCallback);
 Task m_acquireADCReadingTask(10, TASK_FOREVER, &acquireADCReadingCallback);
 
 ///////////
@@ -197,14 +197,14 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 void setup() {
   Serial.begin(115200);
-//  Log.begin(LOG_LEVEL_NOTICE, &Serial);
-  Log.begin(LOG_LEVEL_VERBOSE, &Serial);
+  Log.begin(LOG_LEVEL_NOTICE, &Serial);
+  // Log.begin(LOG_LEVEL_VERBOSE, &Serial);
 
   pinMode(LED_PIN, OUTPUT);
   pinMode(FLASH_BUTTON_PIN, INPUT);
 
   digitalWrite(LED_PIN, HIGH); //off!
-  
+
   Log.notice(CR CR "Starting Chibit ..." CR);
 
   Log.notice("Starting file system ..." CR);
