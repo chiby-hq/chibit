@@ -76,8 +76,8 @@ bool wifi_joinOrCreateAP(const char* hostname){
     for (int i = 0; i < n && (!connected); ++i) {
       //Log.notice("SSID %s RRSI %d" , WiFi.SSID(i).c_str(), WiFi.RSSI(i) );
       if(WiFi.SSID(i).startsWith(CHIBIT_AP_PREFIX) && WiFi.RSSI(i) >= -60){
-        // Connect to the ad-hoc Chibit Access Point - the password is the SSID + "passwd"
-        String apPassword = WiFi.SSID(i)+"passwd";
+        // Connect to the ad-hoc Chibit Access Point - the password is the SSID + "pass"
+        String apPassword = WiFi.SSID(i)+"pass";
         Log.notice("Trying to connect to ad-hoc Chibit access point %s (%d) with password %s" CR, WiFi.SSID(i).c_str(), WiFi.RSSI(i), apPassword.c_str() );
         connected = _wifi_connectWithTimeout(WiFi.SSID(i).c_str(), apPassword.c_str(), WIFI_TIMEOUT_MS);
         if(connected){
@@ -97,7 +97,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
     String apSSID = wifi_getAPName()+"" ;
     m_apSSID = apSSID.c_str();
 
-    String apPassword = String(ESP.getChipId());
+    String apPassword = String(wifi_getAPName()+"pass");
     m_apPassword = apPassword.c_str();
     WiFi.softAP(m_apSSID, m_apPassword);
 
