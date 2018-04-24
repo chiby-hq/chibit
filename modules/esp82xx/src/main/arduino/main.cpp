@@ -43,6 +43,8 @@ uint16_t m_mqttBrokerPort = DEFAULT_MQTT_PORT;
 
 String m_sensorTopic;
 
+unsigned char m_lastKnownBendSensorRead;
+
 MQTT* m_mqttClient;
 
 void forceCalibration(){
@@ -124,20 +126,26 @@ void publishClusterStatsCallback(){
 void publishADCReadingCallback(){
   Log.trace("Publishing ADC reading via MQTT" CR );
 
-  unsigned char rawRead = analog_bend_readAdc();
-  Log.trace("ADC reading = %d" CR, rawRead );
-  String read = String((int)rawRead);
+  Log.trace("ADC reading = %d" CR, m_lastKnownBendSensorRead );
+  char read[4];
+  sprintf(read,"%d", m_lastKnownBendSensorRead);
   if(wifi_getMode() == WIFI_MODE_AP){
-    MQTT_local_publish((unsigned char *)m_sensorTopic.c_str(),(unsigned char *)read.c_str(), 1, 0, 0);
+    MQTT_local_publish((unsigned char *)m_sensorTopic.c_str(),(unsigned char *)read,3, 0, 0);
   }else{
-    m_mqttClient->publish(m_sensorTopic, read);
+    String readStr(read);
+    m_mqttClient->publish(m_sensorTopic, readStr);
   }
+}
+
+void acquireADCReadingCallback(){
+  m_lastKnownBendSensorRead = analog_bend_readAdc();
 }
 
 /////////////////
 //Tasks
 Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
 Task m_publishADCReadingTask(3000, TASK_FOREVER, &publishADCReadingCallback);
+Task m_acquireADCReadingTask(10, TASK_FOREVER, &acquireADCReadingCallback);
 
 ///////////
 
@@ -192,6 +200,11 @@ void setup() {
 //  Log.begin(LOG_LEVEL_NOTICE, &Serial);
   Log.begin(LOG_LEVEL_VERBOSE, &Serial);
 
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(FLASH_BUTTON_PIN, INPUT);
+
+  digitalWrite(LED_PIN, HIGH); //off!
+  
   Log.notice(CR CR "Starting Chibit ..." CR);
 
   Log.notice("Starting file system ..." CR);
@@ -265,6 +278,8 @@ void setup() {
         }
       break;
     }
+    m_taskScheduler.addTask(m_acquireADCReadingTask);
+    m_acquireADCReadingTask.enable();
     m_taskScheduler.addTask(m_publishADCReadingTask);
     m_publishADCReadingTask.enable();
   }
