@@ -14,6 +14,28 @@ body {
   margin-bottom: 0;
 }
 
+.avatar-circle {
+  width: 80px;
+  height: 80px;
+  text-align: center;
+  border-radius: 50%;
+  -webkit-border-radius: 50%;
+  -moz-border-radius: 50%;
+  margin-left: 15px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.initials {
+  position: relative;
+  top: 20px; /* 25% of parent */
+  font-size: 40px; /* 50% of parent */
+  line-height: 40px; /* 50% of parent */
+  color: #fff;
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+}
+
 .navbar-brand{
     padding: 0px;
 }
@@ -77,12 +99,30 @@ h1 {
   float: left;
   width: 280px ;
   height: 280px;
-/*  background: #FFFFFF; */
   border: none;
   border-radius: 4px;
   box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.2); 
 }
 
+.grid-sensor-item {
+  float: left;
+  width: 140px ;
+  height: 140px;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.2); 
+  margin: 5px;
+}
+
+.grid-scrollbar-item {
+  float: left;
+  width: 95% ;
+  height: 180px;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.2); 
+  margin: 5px;
+}
 .panel-theme,
 .panel-primary,
 .panel-success,
