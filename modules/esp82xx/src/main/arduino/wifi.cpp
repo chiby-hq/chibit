@@ -21,7 +21,11 @@ int m_wifiMode = WIFI_MODE_DISCONNECTED;
 
 
 bool _wifi_connectWithTimeout(const char* ssid, const char* password, int timeout){
-  WiFi.begin(ssid, password);
+  if(String(password).length() > 0){
+    WiFi.begin(ssid, password);
+  }else{
+    WiFi.begin(ssid);
+  }
   int count = 0;
   while (count <= MAXCOUNT && WiFi.status() != WL_CONNECTED) {
     delay(timeout / MAXCOUNT);
@@ -56,12 +60,18 @@ bool wifi_joinOrCreateAP(const char* hostname){
   //  * (1/3) Preferred : An infrastructure AP
   Log.notice("Scanning known infrastructure access points" CR );
   for (int i = 0; i < n && (!connected); ++i) {
+    Log.trace("Found infrastructure access point %s" CR, WiFi.SSID(i).c_str());
+    Log.trace("Testing out of %d infrastructure access points" CR, sizeof(ACCESS_POINTS_LIST)/sizeof(wifiAccessPoint));
+
     for(uint8_t j = 0; j < sizeof(ACCESS_POINTS_LIST)/sizeof(wifiAccessPoint); ++j) {
-      if(ACCESS_POINTS_LIST[j].ssid == WiFi.SSID(i).c_str()){
+      if(strcmp(ACCESS_POINTS_LIST[j].ssid,WiFi.SSID(i).c_str()) == 0){
         Log.notice("Trying to connect to known infrastructure access point %s" CR, ACCESS_POINTS_LIST[j].ssid);
         connected = _wifi_connectWithTimeout(ACCESS_POINTS_LIST[j].ssid, ACCESS_POINTS_LIST[j].password, WIFI_TIMEOUT_MS);
         if(connected){
           Log.notice("Successful connection to Infrastructure AP %s" CR, ACCESS_POINTS_LIST[j].ssid);
+          IPAddress myIP = WiFi.localIP();
+          Serial.print("Local IP address: ");
+      	  Serial.println(myIP);
           m_wifiMode = WIFI_MODE_INFRASTRUCTURE;
         }else{
           Log.notice("Infrastructure access point %s connection attempt failed." CR, ACCESS_POINTS_LIST[j].ssid );
@@ -70,7 +80,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
     }
   }
 
-  //  * (2/3) Otherwise : Any ChibitAP_* with signal strength (RSSI) >= -40 dB
+  //  * (2/3) Otherwise : Any ChibitAP_* with signal strength (RSSI) >= -60 dB
   if(!connected){
     Log.notice("No known infrastructure access point found, trying to connect to any nearby Chibit ad-hoc access point" CR );
     for (int i = 0; i < n && (!connected); ++i) {
@@ -90,7 +100,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
     }
   }
   // * (3/3) if not, start its own ChibitAP_<chipId> and wait for connections
-  if(!connected){
+/*  if(!connected){
     Log.notice("No nearby Chibit ad-hoc access point found, starting my own..." CR);
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(m_apIP, m_apIP, IPAddress(255, 255, 255, 0));
@@ -109,6 +119,7 @@ bool wifi_joinOrCreateAP(const char* hostname){
     connected = true;
 
   }
+  */
 #else
   // For now just connect to a hard coded network
   Log.notice("Connecting to hardwired access point" CR );
