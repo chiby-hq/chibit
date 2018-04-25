@@ -3,51 +3,52 @@
    <head>
 
       <script type="text/javascript">
-         function WebSocketTest()
-         {
-            if ("WebSocket" in window)
-            {
-              
-               // Let us open a web socket
-               var ws = new WebSocket("ws://BCOPY-ESP8266-01:80/ws?clientId=3242343");
-
-               ws.onopen = function()
-               {
-                  // Web Socket is connected, send data using send()
-                  ws.send("Message to send");
-                  console.log("Message is sent...");
-               };
-
-               ws.onmessage = function (evt)
-               {
-                  var received_msg = evt.data;
-                  console.log("Message is received :", received_msg);
-               };
-
-               ws.onclose = function()
-               {
-                  // websocket is closed.
-                  console.log("Connection is closed...");
-               };
-
-               window.onbeforeunload = function(event) {
-                  socket.close();
-               };
-            }
-
-            else
-            {
-               // The browser doesn't support WebSocket
+          if (! ("WebSocket" in window) )
+           {  // The browser doesn't support WebSocket
                alert("WebSocket NOT supported by your Browser!");
-            }
-         }
+           }
+           
+           var ws = new WebSocket("ws://" + location.host + "/ws");
+           
+           function push(obj){
+               // Web Socket is connected, send data using send()
+              ws.send(JSON.stringify(obj));
+              console.log("Message is sent...");
+           }
+
+           ws.onopen = function()
+           {
+              console.log("WS Connection is open...");
+           };
+           
+           ws.onmessage = function (evt)
+           {
+              var received_msg = evt.data;
+              console.log("Message received :", received_msg);
+           };
+           
+           ws.onclose = function()
+           {
+              // websocket is closed.
+              console.log("WS Connection closed...");
+           };
+           
+           window.onbeforeunload = function(event) {
+              ws.close();
+           };
+
       </script>
 
    </head>
    <body>
 
       <div id="sse">
-         <a href="javascript:WebSocketTest()">Run WebSocket</a>
+         <ul>
+          <li>Sensor 123 <a href="javascript:push({'topic':'/chibit/123/sensor/bend', 'value':155})">Low</a> <a href="javascript:push({'topic':'/chibit/123/sensor/bend', 'value':215})">High</a></li>
+          <li>Sensor 234 <a href="javascript:push({'topic':'/chibit/234/sensor/bend', 'value':155})">Low</a> <a href="javascript:push({'topic':'/chibit/234/sensor/bend', 'value':215})">High</a></li>
+          <li>Sensor 345 <a href="javascript:push({'topic':'/chibit/345/sensor/bend', 'value':155})">Low</a> <a href="javascript:push({'topic':'/chibit/345/sensor/bend', 'value':215})">High</a></li>
+          
+         </ul>
       </div>
 
    </body>
