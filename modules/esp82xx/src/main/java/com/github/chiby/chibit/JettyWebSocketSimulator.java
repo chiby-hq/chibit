@@ -7,7 +7,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 
-@ServerEndpoint(value="/ws")
+@ServerEndpoint(value="/ws", subprotocols = {"arduino",""})
 public class JettyWebSocketSimulator {
     private Session session;
     
@@ -16,9 +16,12 @@ public class JettyWebSocketSimulator {
     
 	@OnOpen
 	public void onOpen(Session session) {
-		System.out.println("WebSocket opened: " + session.getId());
+		System.out.println("WebSocket opened: " + session.getId());//+ " subprotocol '" +session.getNegotiatedSubprotocol()+"'");
 		this.session = session;
-		activeEndpoints.add(this);
+		// We do not repropagate data to arduino clients
+		if( ! session.getNegotiatedSubprotocol().equals("arduino")){
+		  activeEndpoints.add(this);
+	    }
 		
 	}
 	@OnMessage
@@ -28,14 +31,16 @@ public class JettyWebSocketSimulator {
 	
 	@OnError
     public void onError(Session session, Throwable t) {
-        System.out.println("Websocket Error !");
+        System.out.println("Websocket Error  on "+session.getId()+" !");
         t.printStackTrace();
     }
 
 	@OnClose
 	public void onClose(CloseReason reason, Session session) {
 		System.out.println("Closing a WebSocket due to " + reason.getReasonPhrase());
-        activeEndpoints.remove(this);
+        if(activeEndpoints.contains(this)) {
+                activeEndpoints.remove(this);
+        }
 	}
 	
 	private static void broadcast(String message) 
@@ -44,9 +49,9 @@ public class JettyWebSocketSimulator {
         activeEndpoints.forEach(endpoint -> {
             synchronized (endpoint) {
                 try {
-                    endpoint.session.getBasicRemote().
-                      sendText(message);
+                    endpoint.session.getBasicRemote().sendText(message);
                 } catch (IOException e) {
+                    System.out.println("Exception upon propagation to "+endpoint.session.getId());
                     e.printStackTrace();
                 }
             }
