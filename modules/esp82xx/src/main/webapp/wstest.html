@@ -43,7 +43,12 @@
    <body>
 
       <div id="sse">
-         <a href="javascript:push({'topic':'/chibit/123/sensor/adc', 'value':123})">Push Message</a>
+         <ul>
+          <li>Sensor 123 <a href="javascript:push({'topic':'/chibit/123/bend', 'value':155})">Low</a> <a href="javascript:push({'topic':'/chibit/123/bend', 'value':215})">High</a></li>
+          <li>Sensor 234 <a href="javascript:push({'topic':'/chibit/234/bend', 'value':155})">Low</a> <a href="javascript:push({'topic':'/chibit/234/bend', 'value':215})">High</a></li>
+          <li>Sensor 345 <a href="javascript:push({'topic':'/chibit/345/bend', 'value':155})">Low</a> <a href="javascript:push({'topic':'/chibit/345/bend', 'value':215})">High</a></li>
+          
+         </ul>
       </div>
 
    </body>
