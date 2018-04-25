@@ -127,7 +127,9 @@ void publishADCReadingCallback(){
   Log.trace("Publishing ADC reading via MQTT" CR );
 
   Log.trace("ADC reading = %d" CR, m_lastKnownBendSensorRead );
+#ifdef ADC_TO_SERIAL
   Serial.println(m_lastKnownBendSensorRead);
+#endif
   char read[4];
   sprintf(read,"%d", m_lastKnownBendSensorRead);
   if(wifi_getMode() == WIFI_MODE_AP){
@@ -145,8 +147,8 @@ void acquireADCReadingCallback(){
 /////////////////
 //Tasks
 Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
-Task m_publishADCReadingTask(250, TASK_FOREVER, &publishADCReadingCallback);
-Task m_acquireADCReadingTask(10, TASK_FOREVER, &acquireADCReadingCallback);
+Task m_publishADCReadingTask(1000, TASK_FOREVER, &publishADCReadingCallback);
+Task m_acquireADCReadingTask(50, TASK_FOREVER, &acquireADCReadingCallback);
 
 ///////////
 
@@ -181,7 +183,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
  if(type == WS_EVT_CONNECT){
    Log.trace("ws[%s][%u] connect" CR, server->url(), client->id());
-   client->printf("Hello Client %u :)", client->id());
+//   client->printf("Hello Client %u :)", client->id());
    client->ping();
  } else if(type == WS_EVT_DISCONNECT){
    Log.warning("ws[%s][%u] disconnect" CR, server->url(), client->id());
