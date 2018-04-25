@@ -13,10 +13,12 @@
 #include <ArduinoJson.h>
 #include <TaskScheduler.h>
 
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+//#include <ESPAsyncTCP.h>
+//#include <ESPAsyncWebServer.h>
 
 #include <ESP8266mDNS.h>
+
+#include <WebSocketsClient.h>
 
 #include "MQTT.h"
 #include "uMQTTBroker.h"
@@ -34,18 +36,21 @@
 
 #define CONFIG_FILE "/config.json"
 
-AsyncWebServer m_httpServer(80);
-AsyncWebSocket m_websocketServer("/ws");
+//AsyncWebServer m_httpServer(80);
+//AsyncWebSocket m_websocketServer("/ws");
 
 String m_hostname;
-IPAddress m_mqttBrokerIp;
-uint16_t m_mqttBrokerPort = DEFAULT_MQTT_PORT;
+IPAddress m_brokerIp;
+uint16_t m_brokerPort = DEFAULT_MQTT_PORT;
 
 String m_sensorTopic;
 
 unsigned char m_lastKnownBendSensorRead;
 
 MQTT* m_mqttClient;
+
+WebSocketsClient m_webSocketClient;
+
 
 void forceCalibration(){
   unsigned int min;
@@ -102,7 +107,7 @@ void loadConfiguration() {
   }
   file.close();
 }
-
+/*
 void publishClusterStatsCallback(){
   Log.trace("Publishing cluster stats via MQTT" CR );
   String cid = String(ESP.getChipId());
@@ -121,7 +126,7 @@ void publishClusterStatsCallback(){
     m_mqttClient->publish(topic, val);
   }
 }
-
+*/
 
 void publishADCReadingCallback(){
   Log.trace("Publishing ADC reading via MQTT" CR );
@@ -132,13 +137,24 @@ void publishADCReadingCallback(){
 #endif
   char read[4];
   sprintf(read,"%d", m_lastKnownBendSensorRead);
-  if(wifi_getMode() == WIFI_MODE_AP){
-    MQTT_local_publish((unsigned char *)m_sensorTopic.c_str(),(unsigned char *)read,3, 0, 0);
-  }else{
+  // if(wifi_getMode() == WIFI_MODE_AP){
+  //   MQTT_local_publish((unsigned char *)m_sensorTopic.c_str(),(unsigned char *)read,3, 0, 0);
+  // }else
+  {
+    Log.trace("Remote publish via MQTT" CR );
     String readStr(read);
-    m_mqttClient->publish(m_sensorTopic, readStr);
+//    m_mqttClient->publish(m_sensorTopic, readStr);
+    StaticJsonBuffer<100> jsonBuffer;
+    JsonObject& root = jsonBuffer.createObject();
+    root["topic"] = m_sensorTopic;
+    root["value"] = readStr;
+
+    String wsMsg;
+    root.printTo(wsMsg);
+    m_webSocketClient.sendTXT(wsMsg);
   }
 }
+
 
 void acquireADCReadingCallback(){
   m_lastKnownBendSensorRead = analog_bend_readAdc();
@@ -146,9 +162,9 @@ void acquireADCReadingCallback(){
 
 /////////////////
 //Tasks
-Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
-Task m_publishADCReadingTask(1000, TASK_FOREVER, &publishADCReadingCallback);
-Task m_acquireADCReadingTask(50, TASK_FOREVER, &acquireADCReadingCallback);
+//Task m_publishClusterStatsTask(10000, TASK_FOREVER, &publishClusterStatsCallback);
+Task m_publishADCReadingTask(250, TASK_FOREVER, &publishADCReadingCallback);
+Task m_acquireADCReadingTask(10, TASK_FOREVER, &acquireADCReadingCallback);
 
 ///////////
 
@@ -156,6 +172,31 @@ Scheduler m_taskScheduler;
 
 bool m_wifiInitialized = false;
 
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+
+	switch(type) {
+		case WStype_DISCONNECTED:
+			Log.warning("[WSc] Disconnected! " CR);
+			break;
+		case WStype_CONNECTED:
+			Log.warning("[WSc] Connected to url: %s" CR, payload);
+			break;
+		// case WStype_TEXT:
+		// 	Log.notice("[WSc] get text: %s" CR, payload);
+    //
+		// 	// send message to server
+		// 	// webSocket.sendTXT("message here");
+		// 	break;
+		// case WStype_BIN:
+		// 	Log.notice("[WSc] get binary length: %u" CR, length);
+		// 	hexdump(payload, length);
+    //
+		// 	break;
+	}
+
+}
+
+/*
 void MQTTCallback(uint32_t *client, const char* topic, uint32_t topic_len, const char *data, uint32_t length) {
   char topic_str[topic_len+1];
   os_memcpy(topic_str, topic, topic_len);
@@ -177,7 +218,8 @@ void MQTTCallback(uint32_t *client, const char* topic, uint32_t topic_len, const
   m_websocketServer.textAll(wsMsg.c_str());
 
 }
-
+*/
+/*
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
  Log.trace("on WS event" CR );
 
@@ -196,7 +238,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
    Log.notice("ws[%s][%u] data" CR, server->url(), client->id());
  }
 }
-
+*/
 
 void setup() {
   Serial.begin(115200);
@@ -234,6 +276,7 @@ void setup() {
     Log.notice("WiFi mode is now %d" CR, wifiMode);
     switch(wifiMode){
       case WIFI_MODE_AP:
+        /*
         if (!MDNS.begin("chibit")) {
           Log.fatal("Error setting up MDNS responder!" CR);
         }else{
@@ -259,32 +302,61 @@ void setup() {
       //     m_taskScheduler.addTask(m_publishClusterStatsTask);
       //     m_publishClusterStatsTask.enable();
          }
+        */
         break;
       case WIFI_MODE_CLIENT:
       case WIFI_MODE_INFRASTRUCTURE:
         MDNS.begin(m_hostname.c_str());
+        /*
         Log.notice("Locating MQTT broker ..." CR);
         int n = MDNS.queryService("mqtt", "tcp"); // Send out query for MQTT service
         if (n == 0) {
           Log.fatal( "MQTT broker could not be located" CR);
+          m_wifiInitialized = false;
           // flatline the built-in LED
           digitalWrite(LED_PIN, LOW);
         } else {
           Log.notice( "Found at least one service" CR);
-          m_mqttBrokerIp = MDNS.IP(0);
-          m_mqttBrokerPort = MDNS.port(0);
-          const String ipAddr = m_mqttBrokerIp.toString();
-          Log.notice("Located MQTT broker at %s : %d" CR, ipAddr.c_str(), m_mqttBrokerPort);
+          m_brokerIp = MDNS.IP(0);
+          m_brokerPort = MDNS.port(0);
+          const String ipAddr = m_brokerIp.toString();
+          Log.notice("Located MQTT broker at %s : %d" CR, ipAddr.c_str(), m_brokerPort);
 
-          m_mqttClient = new MQTT(m_hostname.c_str(), ipAddr.c_str(), m_mqttBrokerPort);
+          m_mqttClient = new MQTT(m_hostname.c_str(), ipAddr.c_str(), m_brokerPort);
+
+        }
+        */
+        Log.notice("Locating Websocket server ..." CR);
+        int n = MDNS.queryService("chibitws", "tcp"); // Send out query for MQTT service
+        if (n == 0) {
+          Log.fatal( "Websocket server could not be located" CR);
+          m_wifiInitialized = false;
+          // flatline the built-in LED
+          digitalWrite(LED_PIN, LOW);
+        } else {
+          Log.notice( "Found at least one Websocket server service" CR);
+          m_brokerIp = MDNS.IP(0);
+          m_brokerPort = MDNS.port(0);
+          const String ipAddr = m_brokerIp.toString();
+          Log.notice("Located Websocket server broker at %s : %d" CR, ipAddr.c_str(), m_brokerPort);
+
+          m_webSocketClient.begin(ipAddr.c_str(), m_brokerPort, "/ws");
+          m_webSocketClient.onEvent(webSocketEvent);
+          m_webSocketClient.setReconnectInterval(5000);
+          //m_mqttClient = new MQTT(m_hostname.c_str(), ipAddr.c_str(), m_brokerPort);
+
 
         }
       break;
     }
+
     m_taskScheduler.addTask(m_acquireADCReadingTask);
     m_acquireADCReadingTask.enable();
-    m_taskScheduler.addTask(m_publishADCReadingTask);
-    m_publishADCReadingTask.enable();
+    if(m_wifiInitialized){
+      Log.notice("Activating ADC MQTT publishing" CR);
+      m_taskScheduler.addTask(m_publishADCReadingTask);
+      m_publishADCReadingTask.enable();
+    }
   }
 
 }
@@ -292,9 +364,14 @@ void setup() {
 void loop() {
   if (digitalRead(FLASH_BUTTON_PIN) == LOW) { //flash button pressed?
     forceCalibration();
+    if(!m_wifiInitialized){
+      // flatline the built-in LED
+      digitalWrite(LED_PIN, LOW);
+    }
   }
 
   if(m_wifiInitialized){
+    m_webSocketClient.loop();
     m_taskScheduler.execute();
   }
 
