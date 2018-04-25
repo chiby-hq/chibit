@@ -29,7 +29,7 @@ Note that only minified resources will be copied, to the root of the file system
 The bend sensor should be set against the wrist, palm and fingers vertical above the thumb and below the wrist.
 The bend sensor's resistance increases with the curvature, we should measure the difference between two extreme positions and the difference of resistance.
 
-:warning: We must ensure we set off threshold points, as two different sensors might offer different resistance levels. Calibration data will be collected when the microcontroller starts up if needed (or if the onboard FLASH button is long-pressed).
+:warning: Two different sensors might offer different resistance levels. Calibration data will be collected when the microcontroller starts up if needed (or if the onboard FLASH button is long-pressed).
 
 
 ### Sensor activity sequence diagram
@@ -101,6 +101,42 @@ end
 
 @enduml
 ```
+
+### Web application : Sensor Manager sequence diagram
+```plantuml
+@startuml
+participant "Node 1" as Node1
+participant "Node 2" as Node2
+participant "Sensor Manager" as SM
+participant "Web Client" as WC
+
+group New node joins
+  Node1 -> WC : send sensor reading
+  WC -> SM : if sensor known ?
+
+  alt Sensor not known
+    SM -> SM : register node with default attributes
+  end
+
+end
+
+group Update node details
+  WC -> SM : update node details
+end
+
+group Web Client viewer connects
+  WebClient -> WebServer: open index page
+  WebClient -> MQTT: subscribe to cluster metrics and all sensor topics
+  loop
+    MQTT --> WebClient: Sensor update
+    MQTT --> WebClient: Cluster metrics update
+  end
+end
+
+@enduml
+```
+
+
 
 ### Monitoring web interface
 
