@@ -31,7 +31,7 @@ ChibySensorsManager.prototype.addSensor = function(id){
             });
         }
     }else{
-        this.sensors[id] = { id: id, name: id, initials: "?", color: "#999999", avatar: 'question-sign', active: true};
+        this.sensors[id] = { id: id, name: id, initials: "?", color: "#999999", avatar: 'heart', active: true};
         var that = this;
         $.each(this.listeners, function(index, listener){
            if(typeof listener.addedSensor=== "function") listener.addedSensor(that.sensors[id]);

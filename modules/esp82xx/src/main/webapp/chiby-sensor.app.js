@@ -14,8 +14,9 @@ SensorManagerApp.prototype.addedSensor = function(sensor){
     var innerPanel = $('<div class="panel" style="height:140px"></div>');
     // 
     var span = $('<div style="height:120px; padding:5px; margin-left:15px"><div id="sensor-'+ sensor.id
-                        + '" class="avatar-circle" style="background-color:'+sensor.color+'"><span class="initials">'+sensor.initials
-        +'</span></div><div style="padding:5px; text-align:center">'
+                        + '" class="avatar-circle" style="background-color:'+sensor.color+'"><span class="initials"><i class="glyphicon glyphicon-'
+            + sensor.avatar
+            + '"></i></span></div><div style="padding:5px; text-align:center">'
             + sensor.name
             + '</div></div>');
     innerPanel.append(span);
@@ -34,10 +35,14 @@ SensorManagerApp.prototype.onMessage = function(msg){
   if(m.length > 0){
     var sensorId = m[1];
     // update the sensor box shadow with incoming value
-    if(data.value > 190){
-      $("#sensor-"+sensorId).css("box-shadow", "0 0 2pt 6pt green");
-    }else{
+    if(data.value < 50){
       $("#sensor-"+sensorId).css("box-shadow", "0 0 1pt 2pt green");
+    }else if(data.value < 100){
+      $("#sensor-"+sensorId).css("box-shadow", "0 0 1pt 4pt blue");
+    }else if(data.value < 200){
+      $("#sensor-"+sensorId).css("box-shadow", "0 0 1pt 6pt orange");
+    }else{
+      $("#sensor-"+sensorId).css("box-shadow", "0 0 1pt 8pt red");
     }
   }
   
