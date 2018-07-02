@@ -6,13 +6,15 @@
 	<groupId>com.github.chiby.chibit</groupId>
 	<artifactId>chibit-web</artifactId>
 	<version>1.0</version>
-	<packaging>war</packaging>
+	<packaging>jar</packaging>
 	
-	<!-- 
-	  * This application is only using Maven facilities
-	  * to package a static javascript application in the simplest way 
-	  * possible.
-	-->
+	<parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>1.5.14.RELEASE</version>
+        <relativePath/>
+         <!--  lookup parent from repository  -->
+    </parent>
 
 	<name>Chibit Web interface</name>
 	<description>Web frontend for the Chibit connected bracelet</description>
@@ -26,6 +28,16 @@
 	
 	<dependencies>
 		<dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
 			<groupId>org.webjars</groupId>
 			<artifactId>bootstrap</artifactId>
 			<version>3.3.7-1</version>
@@ -60,8 +72,25 @@
 
 	<build>
 		<plugins>
-		
-		    <plugin>
+          <plugin>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-maven-plugin</artifactId>
+              <executions>
+                    <execution>
+                       <goals>
+                          <goal>repackage</goal>
+                          <goal>build-info</goal>
+                       </goals>
+                    </execution>
+                </executions>
+                <configuration>
+				    <mainClass>com.github.chiby.chibit.ChibitWebApplication</mainClass>
+				    <layout>ZIP</layout>
+					<addResources>true</addResources>
+					<executable>true</executable>
+				</configuration>
+          </plugin>
+           <plugin>
 		      <artifactId>maven-clean-plugin</artifactId>
 		      <configuration>
                   <filesets>
