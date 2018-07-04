@@ -5,17 +5,18 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import javax.websocket.*;
+import javax.websocket.EndpointConfig;
 import javax.websocket.server.ServerEndpoint;
 
 @ServerEndpoint(value="/ws", subprotocols = {"arduino",""})
-public class JettyWebSocketSimulator {
+public class JettyWebSocketSimulator extends Endpoint {
     private Session session;
     
     private static Set<JettyWebSocketSimulator> activeEndpoints 
           = new CopyOnWriteArraySet<>();
     
 	@OnOpen
-	public void onOpen(Session session) {
+	public void onOpen(Session session, EndpointConfig arg1) {
 		System.out.println("WebSocket opened: " + session.getId());//+ " subprotocol '" +session.getNegotiatedSubprotocol()+"'");
 		this.session = session;
 		// We do not repropagate data to arduino clients
@@ -57,4 +58,5 @@ public class JettyWebSocketSimulator {
             }
         });
     }
+   
 }
