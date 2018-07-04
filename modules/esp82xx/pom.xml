@@ -209,6 +209,9 @@
                                 <move file="${project.build.directory}/${project.artifactId}-${project.version}/glyphicons-halflings-regular.woff2" tofile="${project.build.directory}/${project.artifactId}-${project.version}/glyphicons.woff2" />
 								
                                 <copy todir="${project.build.outputDirectory}/static/" flatten="true">
+                                    <fileset dir="${project.basedir}/src/main/webapp">
+                                        <include name="**/*" />
+                                    </fileset>
                                     <fileset dir="${project.build.directory}/webjars">
                                         <include name="**/*" />
                                         <type type="file" />
