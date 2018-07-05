@@ -9,30 +9,11 @@ A connected bracelet for Chiby based on ESP8266
 
 ### on a Raspberry Pi
 
-* Copy the following config to /etc/avahi/services/chibitws.service
-
-```xml
-<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
-<service-group>
- <name>chibitws</name>
- <service>
-   <type>_chibitws._tcp</type>
-   <port>8080</port>
-   <txt-record>info=Websocket Chibit broker</txt-record>
-</service>
-</service-group>
-
-```
-
-* Restart the avahi service
-
-```
-sudo service avahi-daemon restart
-```
-
+* Install Java 1.8 (normally installed by default on Raspbian distributions)
+* Download the application
 * Start the application
 
 ```
-java -jar chibit-web-1.0.jar
+java -jar chibit-web-VERSION.jar
 ```
 
