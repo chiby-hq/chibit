@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.github.chiby.chibit</groupId>
@@ -21,9 +20,10 @@
 
     <scm>
       <url>https://github.com/chibyhq/chibit</url>
-      <connection>scm:git:git://github.com/chibyhq/chibit.git</connection>
+      <connection>scm:git:https://github.com/chibyhq/chibit.git</connection>
       <developerConnection>scm:git:git@github.com:chibyhq/chibit.git</developerConnection>
-    </scm>
+      <tag>HEAD</tag>
+  </scm>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -96,11 +96,24 @@
 			    <groupId>de.jutzig</groupId>
 			    <artifactId>github-release-plugin</artifactId>
 			    <version>1.1.1</version>
-			    <configuration>
+			    <executions>
+					<execution>
+						<goals>
+							<goal>deploy</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
 			        <description>Release ${project.version}</description>
 			        <releaseName>${project.version}</releaseName>
 			        <tag>${project.version}</tag>
-			    </configuration>
+                    <fileSet>
+                        <directory>${project.build.directory}</directory>
+                        <includes>
+                            <include>${project.artifactId}-javadoc.jar</include>
+                        </includes>
+                    </fileSet>
+                 </configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
@@ -221,11 +234,8 @@
 						</goals>
 						<configuration>
 							<target>
-								<mkdir
-									dir="${project.build.directory}/${project.artifactId}-${project.version}" />
-								<copy
-									todir="${project.build.directory}/${project.artifactId}-${project.version}"
-									flatten="true">
+								<mkdir dir="${project.build.directory}/${project.artifactId}-${project.version}" />
+								<copy todir="${project.build.directory}/${project.artifactId}-${project.version}" flatten="true">
 									<fileset dir="${project.build.directory}/webjars">
 										<include name="**/*" />
 										<type type="file" />
@@ -233,12 +243,9 @@
 								</copy>
 								<!-- Reduce the filename to be shorter than 32 bytes, it's the max 
 									length for ESP SPIFFS -->
-								<move
-									file="${project.build.directory}/${project.artifactId}-${project.version}/glyphicons-halflings-regular.woff2"
-									tofile="${project.build.directory}/${project.artifactId}-${project.version}/glyphicons.woff2" />
+								<move file="${project.build.directory}/${project.artifactId}-${project.version}/glyphicons-halflings-regular.woff2" tofile="${project.build.directory}/${project.artifactId}-${project.version}/glyphicons.woff2" />
 
-								<copy todir="${project.build.outputDirectory}/static/"
-									flatten="true">
+								<copy todir="${project.build.outputDirectory}/static/" flatten="true">
 									<fileset dir="${project.basedir}/src/main/webapp">
 										<include name="**/*" />
 									</fileset>
@@ -247,9 +254,7 @@
 										<type type="file" />
 									</fileset>
 								</copy>
-								<move
-									file="${project.build.outputDirectory}/static/glyphicons-halflings-regular.woff2"
-									tofile="${project.build.outputDirectory}/static/glyphicons.woff2" />
+								<move file="${project.build.outputDirectory}/static/glyphicons-halflings-regular.woff2" tofile="${project.build.outputDirectory}/static/glyphicons.woff2" />
 							</target>
 						</configuration>
 					</execution>
@@ -262,8 +267,7 @@
 						<configuration>
 							<target>
 								<copy todir="${project.basedir}/data">
-									<fileset
-										dir="${project.build.directory}/${project.artifactId}-${project.version}">
+									<fileset dir="${project.build.directory}/${project.artifactId}-${project.version}">
 										<exclude name="WEB-INF/**" />
 										<exclude name="META-INF/**" />
 									</fileset>
