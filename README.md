@@ -26,6 +26,10 @@ A connected bracelet for Chiby based on ESP8266
 
 * Restart the avahi service
 
+```
+sudo service avahi-daemon restart
+```
+
 * Start the application
 
 ```
