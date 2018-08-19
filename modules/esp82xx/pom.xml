@@ -4,7 +4,7 @@
 
 	<groupId>com.github.chiby.chibit</groupId>
 	<artifactId>chibit-web</artifactId>
-	<version>1.1-SNAPSHOT</version>
+	<version>1.3-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<parent>
@@ -96,14 +96,6 @@
 			    <groupId>de.jutzig</groupId>
 			    <artifactId>github-release-plugin</artifactId>
 			    <version>1.1.1</version>
-			    <executions>
-					<execution>
-					    <phase>deploy</phase>
-						<goals>
-							<goal>release</goal>
-						</goals>
-					</execution>
-				</executions>
 				<configuration>
 			        <description>Release ${project.version}</description>
 			        <releaseName>${project.version}</releaseName>
