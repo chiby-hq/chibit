@@ -28,3 +28,12 @@ upip.install('microhomie')
 ampy --port /dev/ttyUSBx put src/main/python/main.py
 ampy --port /dev/ttyUSBx put src/main/python/settings.py
 ```
+
+* Startup an MQTT host
+```
+docker run -it -p 1883:1883 -p 9001:9001 eclipse-mosquitto
+```
+* And an MQTT client to dump readings :
+```
+docker run -it --net=host --rm efrecon/mqtt-client sub -h localhost -t "#" -v
+```
