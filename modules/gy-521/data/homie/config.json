@@ -1,0 +1,17 @@
+{
+  "name": "Chibit",
+  "device_stats_interval": 60,
+  "wifi": {
+    "ssid": "Livebubble",
+    "password": "Bubble-Ton"
+  },
+  "mqtt": {
+    "host": "192.168.1.24",
+    "port": 1883,
+    "base_topic": "chibit/",
+    "auth": false
+  },
+  "ota": {
+    "enabled": true
+  }
+}
